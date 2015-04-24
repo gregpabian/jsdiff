@@ -53,41 +53,6 @@
       return n;
     }
 
-    function buildValues(components, newString, oldString, useLongestToken) {
-      var componentPos = 0,
-          componentLen = components.length,
-          newPos = 0,
-          oldPos = 0;
-
-      for (; componentPos < componentLen; componentPos++) {
-        var component = components[componentPos];
-        if (!component.removed) {
-          if (!component.added && useLongestToken) {
-            var value = newString.slice(newPos, newPos + component.count);
-            value = map(value, function(value, i) {
-              var oldValue = oldString[oldPos + i];
-              return oldValue.length > value.length ? oldValue : value;
-            });
-
-            component.value = value.join('');
-          } else {
-            component.value = newString.slice(newPos, newPos + component.count).join('');
-          }
-          newPos += component.count;
-
-          // Common case
-          if (!component.added) {
-            oldPos += component.count;
-          }
-        } else {
-          component.value = oldString.slice(oldPos, oldPos + component.count).join('');
-          oldPos += component.count;
-        }
-      }
-
-      return components;
-    }
-
     var Diff = function(ignoreWhitespace) {
       this.ignoreWhitespace = ignoreWhitespace;
     };
@@ -126,7 +91,42 @@
           var oldPos = this.extractCommon(bestPath[0], newString, oldString, 0);
           if (bestPath[0].newPos+1 >= newLen && oldPos+1 >= oldLen) {
             // Identity per the equality and tokenizer
-            return done([{value: newString.join('')}]);
+            return done([{value: self.untokenize(newString)}]);
+          }
+
+          function buildValues(components, newString, oldString, useLongestToken) {
+            var componentPos = 0,
+                componentLen = components.length,
+                newPos = 0,
+                oldPos = 0;
+
+            for (; componentPos < componentLen; componentPos++) {
+              var component = components[componentPos];
+              if (!component.removed) {
+                if (!component.added && useLongestToken) {
+                  var value = newString.slice(newPos, newPos + component.count);
+                  value = map(value, function(value, i) {
+                    var oldValue = oldString[oldPos + i];
+                    return oldValue.length > value.length ? oldValue : value;
+                  });
+
+                  component.value = self.untokenize(value);
+                } else {
+                  component.value = self.untokenize(newString.slice(newPos, newPos + component.count));
+                }
+                newPos += component.count;
+
+                // Common case
+                if (!component.added) {
+                  oldPos += component.count;
+                }
+              } else {
+                component.value = self.untokenize(oldString.slice(oldPos, oldPos + component.count));
+                oldPos += component.count;
+              }
+            }
+
+            return components;
           }
 
           // Main worker method. checks all permutations of a given edit length for acceptance.
@@ -240,6 +240,9 @@
         },
         tokenize: function(value) {
           return value.split('');
+        },
+        untokenize: function(value) {
+          return value.join('');
         }
     };
 
